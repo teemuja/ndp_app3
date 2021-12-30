@@ -29,14 +29,14 @@ header_title = '''
 st.subheader(header_title)
 st.markdown("""---""")
 st.title('Data Paper #0.1')
-
+st.caption('Digitaalinen datapaperi tutkimustiedon hallintaan')
 st.title(':point_down:')
 
 # valitsimet
 c1, c2 = st.columns(2)
 kuntalista = ['Espoo','Helsinki','Vantaa']
 default_kunta = kuntalista.index('Espoo')
-kunta = c1.selectbox('Valitse kunta', kuntalista, index=default_kunta)
+kunta = c1.selectbox('Valitse kaupunki', kuntalista, index=default_kunta)
 # hae pno data..
 kuntadata = pno_data(kunta,2021)
 pno_lista = kuntadata['Postinumeroalueen nimi'].tolist()
@@ -58,6 +58,7 @@ with st.expander(f"Kuntagraafi {kunta}"):
         return scat1
     scat1 = scatplot1(kuntadata)
     st.plotly_chart(scat1, use_container_width=True)
+    st.caption("[stat.fi](https://www.stat.fi/org/avoindata/paikkatietoaineistot/paavo.html)")
 
 # prep
 colormap_hri = {
@@ -91,7 +92,7 @@ with st.expander("Rakennukset kartalla", expanded=True):
                                hover_name="tarkenne",
                                hover_data=['kerrosala','kerrosluku','rakennusvuosi'],
                                mapbox_style="carto-positron",
-                               #color_continuous_scale=px.colors.qualitative.G10,
+                               labels={"color": "rakennustyyppi"},
                                color_discrete_map=colormap_hri,
                                center={"lat": lat, "lon": lon},
                                zoom=13,
@@ -108,6 +109,7 @@ with st.expander("Rakennukset kartalla", expanded=True):
         raks_csv = plot.to_csv().encode('utf-8')
         st.download_button(label="Lataa rakennukset CSV-tiedostona", data=raks_csv,
                            file_name=f'rakennukset_{pno_nimi}.csv', mime='text/csv')
+    st.caption("[hsy.fi](https://www.hsy.fi/ymparistotieto/avoindata/avoin-data---sivut/paakaupunkiseudun-rakennukset/)")
 
 with st.expander("Tehokkuus-graafit", expanded=True):
     # get rid off outliers..
@@ -135,4 +137,15 @@ with st.expander("Tehokkuus-graafit", expanded=True):
     scat2 = scatplot2(scat_)
     st.plotly_chart(scat2, use_container_width=True)
 
-# eipävissiin
+footer_title = '''
+---
+:see_no_evil: **Naked Density Project**
+[![MIT license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://lbesson.mit-license.org/) 
+'''
+st.markdown(footer_title)
+footer_fin = '<p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">\
+        Naked Density Projekti on osa Teemu Jaman väitöskirjatutkimusta Aalto Yliopistossa. \
+        Projektissa tutkitaan maankäytön tehokkuuden ja kaupunkirakenteen fyysisten piirteiden\
+        vaikutuksia palveluiden kehittymiseen data-analytiikan ja koneoppimisen avulla.\
+        </p>'
+st.markdown(footer_fin, unsafe_allow_html=True)

@@ -4,6 +4,7 @@ import plotly.express as px
 
 from apis import pno_data
 from apis import hri_data
+from apis import densities
 
 # page setup
 st.set_page_config(page_title="NDP App d3", layout="wide")
@@ -43,29 +44,12 @@ pno_lista = kuntadata['Postinumeroalueen nimi'].tolist()
 # lisää pno_lista valikkoon
 pno_nimi = c2.selectbox('Valitse postinumeroalue', pno_lista)
 
-# kuntascat
-with st.expander(f"Kuntagraafi {kunta}"):
-    featlist = kuntadata.columns.tolist()
-    default_x = featlist.index('Rakennukset yhteensä')
-    default_y = featlist.index('Asukkaat yhteensä')
-    col1,col2 = st.columns([1,1])
-    xaks = col1.selectbox('Valitse X-akselin tieto', featlist, index=default_x)
-    yaks = col2.selectbox('Valitse Y-akselin tieto', featlist, index=default_y)
-    def scatplot1(df):
-        scat1 = px.scatter(df, x=xaks, y=yaks, color='Postinumeroalueen nimi',
-                           hover_name='Postinumeroalueen nimi')
-        scat1.update_layout(legend={'traceorder': 'normal'})
-        return scat1
-    scat1 = scatplot1(kuntadata)
-    st.plotly_chart(scat1, use_container_width=True)
-    st.caption("[stat.fi](https://www.stat.fi/org/avoindata/paikkatietoaineistot/paavo.html)")
-
 # prep
 colormap_hri = {
-    "Erilliset pientalot": "bisque",
-    "Rivi- ja ketjutalot": "burlywood",
+    "Erilliset pientalot": "goldenrod",
+    "Rivi- ja ketjutalot": "darkgoldenrod",
     "Asuinkerrostalot": "chocolate",
-    "Vapaa-ajan asuinrakennukset": "goldenrod",
+    "Vapaa-ajan asuinrakennukset": "gold",
     "Muut rakennukset": "gainsboro",
     "Liikenteen rakennukset": "darkcyan",
     "Kokoontumisrakennukset": "darkorange",
@@ -79,10 +63,54 @@ colormap_hri = {
     "Palo- ja pelastustoimen rakennukset": "grey"
 }
 pno_alue = kuntadata[kuntadata['Postinumeroalueen nimi'] == pno_nimi]
+data = hri_data(pno_alue)
 
-#plot
-with st.expander("Rakennukset kartalla", expanded=True):
-    plot = hri_data(pno_alue)
+with st.expander("Kerrosalagraafit", expanded=True):
+    # get rid off outliers..
+    high_limit = data['kerrosala'].quantile(0.99)
+    #low_limit = data['kerrosala'].quantile(0.01)
+    # plot 1
+    plot_kem = data[(data['kerrosala'] < high_limit) & (data['kerrosala'] > 0)]
+    fig_kem = px.histogram(plot_kem,
+                         title=f'{pno_nimi} - Kerrosalahistogrammi',
+                         x='kerrosala', color="rakennustyyppi", barmode="overlay", nbins=10, histnorm='percent', #'probability density',
+                         color_discrete_map=colormap_hri,
+                         labels={
+                             "kerrosala": "Eri kokoisten rakennusten jakauma",
+                             "color": "Rakennustyyppi"
+                         }
+                         )
+    st.plotly_chart(fig_kem, use_container_width=True)
+    # plot 2
+    plot_yrs = data[(data['rakennusvuosi'] < 2022) & (data['rakennusvuosi'] > 1800)]
+    fig_yrs = px.scatter(plot_yrs, title=f'{pno_nimi} - Rakennusten koko rakennusvuosittain',
+                          x='rakennusvuosi', y='kerrosala', color='rakennustyyppi', log_y=True,
+                          hover_name='tarkenne', color_discrete_map=colormap_hri)
+    st.plotly_chart(fig_yrs, use_container_width=True)
+
+with st.expander("Tehokkuusgraafi", expanded=False):
+    density_data = densities(data)
+    # select only housing types & drop nan values
+    showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
+    housing = density_data[density_data.rakennustyyppi.isin(showlist)]
+    # plot
+    fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuusmatriisi',
+                         x='GSI', y='FSI', color='rakennustyyppi', size='kerrosala', log_y=False,
+                         hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
+                         color_discrete_map=colormap_hri)
+    fig_dens.update_layout(legend={'traceorder': 'normal'})
+    st.plotly_chart(fig_dens, use_container_width=True)
+    selite = '''
+    FSI = floor space index = tehokkuusluku   
+    GSI = ground space index = peitto  
+    OSR = open space ratio = väljyysluku  
+    soveltaen: Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.
+    '''
+    st.markdown(selite)
+
+#map plot
+with st.expander("Rakennukset kartalla", expanded=False):
+    plot = density_data
     lat = plot.unary_union.centroid.y
     lon = plot.unary_union.centroid.x
     fig = px.choropleth_mapbox(plot,
@@ -90,7 +118,7 @@ with st.expander("Rakennukset kartalla", expanded=True):
                                locations=plot.index,
                                color=plot['rakennustyyppi'].astype(str),
                                hover_name="tarkenne",
-                               hover_data=['kerrosala','kerrosluku','rakennusvuosi'],
+                               hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
                                mapbox_style="carto-positron",
                                labels={"color": "rakennustyyppi"},
                                color_discrete_map=colormap_hri,
@@ -105,37 +133,12 @@ with st.expander("Rakennukset kartalla", expanded=True):
     # generate plot
     with st.spinner('Kokoaa rakennuksia...'):
         st.plotly_chart(fig, use_container_width=True)
-        # download button
-        raks_csv = plot.to_csv().encode('utf-8')
-        st.download_button(label="Lataa rakennukset CSV-tiedostona", data=raks_csv,
-                           file_name=f'rakennukset_{pno_nimi}.csv', mime='text/csv')
-    st.caption("[hsy.fi](https://www.hsy.fi/ymparistotieto/avoindata/avoin-data---sivut/paakaupunkiseudun-rakennukset/)")
 
-with st.expander("Tehokkuus-graafit", expanded=True):
-    # get rid off outliers..
-    high_limit = plot['kerrosala'].quantile(0.99)
-    #low_limit = plot['kerrosala'].quantile(0.01)
-    plot_out = plot[(plot['kerrosala'] < high_limit) & (plot['kerrosala'] > 0)]
-    fig_h = px.histogram(plot_out,
-                         title=f'{pno_nimi} - Kerrosalahistogrammi',
-                         x='kerrosala', color="rakennustyyppi", barmode="overlay", nbins=10, histnorm='percent', #'probability density',
-                         color_discrete_map=colormap_hri,
-                         labels={
-                             "kerrosala": "Eri kokoisten rakennusten jakauma",
-                             "color": "rakennustyyppi"
-                         }
-                         )
-    st.plotly_chart(fig_h, use_container_width=True)
-
-    def scatplot2(df):
-        scat = px.scatter(df, title=f'{pno_nimi} - Rakennusten koko rakennusvuosittain',
-                          x='rakennusvuosi', y='kerrosala', color='rakennustyyppi', log_y=True,
-                          hover_name='tarkenne', color_discrete_map=colormap_hri)
-        #scat.update_layout(legend={'traceorder': 'normal'})
-        return scat
-    scat_ = plot[(plot['rakennusvuosi'] < 2022) & (plot['rakennusvuosi'] > 1850)]
-    scat2 = scatplot2(scat_)
-    st.plotly_chart(scat2, use_container_width=True)
+    st.caption("data: [hsy.fi](https://www.hsy.fi/ymparistotieto/avoindata/avoin-data---sivut/paakaupunkiseudun-rakennukset/)")
+    # download button
+    raks_csv = plot.drop(columns='uID').to_csv().encode('utf-8')
+    st.download_button(label="Lataa rakennukset CSV-tiedostona", data=raks_csv,
+                       file_name=f'rakennukset_{pno_nimi}.csv', mime='text/csv')
 
 footer_title = '''
 ---
@@ -143,9 +146,11 @@ footer_title = '''
 [![MIT license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://lbesson.mit-license.org/) 
 '''
 st.markdown(footer_title)
-footer_fin = '<p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">\
-        Naked Density Projekti on osa Teemu Jaman väitöskirjatutkimusta Aalto Yliopistossa. \
-        Projektissa tutkitaan maankäytön tehokkuuden ja kaupunkirakenteen fyysisten piirteiden\
-        vaikutuksia palveluiden kehittymiseen data-analytiikan ja koneoppimisen avulla.\
-        </p>'
-st.markdown(footer_fin, unsafe_allow_html=True)
+footer_text = '''
+<p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+Naked Density Projekti on osa <a href="https://github.com/teemuja" target="_blank">Teemu Jaman</a> väitöskirjatutkimusta Aalto Yliopistossa.
+Projektissa tutkitaan maankäytön tehokkuuden ja kaupunkirakenteen fyysisten piirteiden
+vaikutuksia palveluiden kehittymiseen data-analytiikan ja koneoppimisen avulla.
+</p>
+'''
+st.markdown(footer_text, unsafe_allow_html=True)

@@ -2,9 +2,11 @@
 from owslib.wfs import WebFeatureService
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 import streamlit as st
 
 import osmnx as ox
+import momepy
 from shapely.geometry import Point
 
 def loc2bbox(address,radius=1000):
@@ -65,8 +67,33 @@ def hri_data(pno):
     gdf_out = gdf_pno.to_crs(epsg=4326)
     return gdf_out
 
-def densities(gdf):
-    import momepy
-    # jatka...
+def densities(buildings):
+    # projected crs for momepy calculations & prepare for housing
+    gdf_ = buildings.to_crs(3857)
+    gdf_['kerrosala'] = pd.to_numeric(gdf_['kerrosala'], errors='coerce', downcast='float')
+    gdf_['kerrosala'].fillna(gdf_.area, inplace=True)
+    no_list = ['Muut rakennukset','Palo- ja pelastustoimen rakennukset','Varastorakennukset']
+    yes_serie = ~gdf_.rakennustyyppi.isin(no_list) # exclude some types
+    gdf = gdf_[yes_serie]
+    gdf['uID'] = momepy.unique_id(gdf)
+    limit = momepy.buffered_limit(gdf)
+    tessellation = momepy.Tessellation(gdf, unique_id='uID', limit=limit).tessellation
+    # calculate GSI = ground space index = coverage = CAR = coverage area ratio
+    tess_GSI = momepy.AreaRatio(tessellation, gdf,
+                                momepy.Area(tessellation).series,
+                                momepy.Area(gdf).series, 'uID')
+    gdf['GSI'] = round(tess_GSI.series,2)
+    # calculate FSI = floor space index = FAR = floor area ratio
+    gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,2)
+    # calculate OSR = open space ratio = spaciousness
+    gdf['OSR'] = round((1 - gdf['GSI']) / gdf['FSI'],2)
+    # calculate average GSI of nearby plots
+    # queen contiguity for 3 degree neighbours = "perceived neighborhood"
+    sw3 = momepy.sw_high(k=3, gdf=tessellation, ids='uID')
+    tessellation = tessellation.merge(gdf[['uID', 'OSR']]) # add OSR values to tesselation areas for calculation below
+    # add median OSR of "perceived neighborhood" for each building
+    gdf['OSR_ND'] = momepy.AverageCharacter(tessellation, values='OSR', spatial_weights=sw3, unique_id='uID', mode='median').median
+    gdf_out = gdf.to_crs(4326)
+    return gdf_out
 
 # eipätaaskaanvissiin

@@ -92,7 +92,7 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     density_data = densities(data)
     # select only housing types & drop nan values
     showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
-    housing = density_data[density_data.rakennustyyppi.isin(showlist)]
+    housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
     # plot
     fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuusmatriisi',
                          x='GSI', y='FSI', color='rakennustyyppi', size='kerrosala', log_y=False,

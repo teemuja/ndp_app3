@@ -88,7 +88,7 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     st.plotly_chart(fig_dens, use_container_width=True)
     selite = '''
     FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
-    GSI = ground space index = rakennetun alueen A suhde morfologiseen tonttiin <br>
+    GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
     OSR = open space ratio = väljyysluku r (rakentamattoman alueen suhde kerrosalaan)<br>
     <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
     Soveltaen:<br>
@@ -132,6 +132,7 @@ with st.expander("Rakennukset kartalla", expanded=False):
     raks_csv = plot.drop(columns='uID').to_csv().encode('utf-8')
     st.download_button(label="Lataa rakennukset CSV-tiedostona", data=raks_csv,
                        file_name=f'rakennukset_{pno_nimi}.csv', mime='text/csv')
+
 
 footer_title = '''
 ---

@@ -1,4 +1,4 @@
-# ndp d3 app for smoooth rdm...
+# ndp d3 app for smoooth RDM...
 import streamlit as st
 import plotly.express as px
 
@@ -30,7 +30,7 @@ header_title = '''
 st.subheader(header_title)
 st.markdown("""---""")
 st.title('Data Paper #0.1')
-st.caption('Digitaalinen datapaperi tutkimustiedon hallintaan')
+st.caption('Digitaalinen datapaperi tutkimustiedon analysointiin ja visualisointiin')
 st.title(':point_down:')
 
 # valitsimet
@@ -65,27 +65,12 @@ colormap_hri = {
 pno_alue = kuntadata[kuntadata['Postinumeroalueen nimi'] == pno_nimi]
 data = hri_data(pno_alue)
 
-with st.expander("Kerrosalagraafit", expanded=True):
-    # get rid off outliers..
-    high_limit = data['kerrosala'].quantile(0.99)
-    #low_limit = data['kerrosala'].quantile(0.01)
-    # plot 1
-    plot_kem = data[(data['kerrosala'] < high_limit) & (data['kerrosala'] > 0)]
-    fig_kem = px.histogram(plot_kem,
-                         title=f'{pno_nimi} - Kerrosalahistogrammi',
-                         x='kerrosala', color="rakennustyyppi", barmode="overlay", nbins=10, histnorm='percent', #'probability density',
-                         color_discrete_map=colormap_hri,
-                         labels={
-                             "kerrosala": "Eri kokoisten rakennusten jakauma",
-                             "color": "Rakennustyyppi"
-                         }
-                         )
-    st.plotly_chart(fig_kem, use_container_width=True)
-    # plot 2
+with st.expander("Kerrosalahistoriikki", expanded=True):
+    # plot years
     plot_yrs = data[(data['rakennusvuosi'] < 2022) & (data['rakennusvuosi'] > 1800)]
-    fig_yrs = px.scatter(plot_yrs, title=f'{pno_nimi} - Rakennusten koko rakennusvuosittain',
-                          x='rakennusvuosi', y='kerrosala', color='rakennustyyppi', log_y=True,
-                          hover_name='tarkenne', color_discrete_map=colormap_hri)
+    fig_yrs = px.scatter(plot_yrs, title=f'{pno_nimi} - Valmistuneet rakennukset ja niiden kerrosala ajassa',
+                         x='rakennusvuosi', y='kerrosala', color='rakennustyyppi', log_y=True,
+                         hover_name='tarkenne', color_discrete_map=colormap_hri)
     st.plotly_chart(fig_yrs, use_container_width=True)
 
 with st.expander("Tehokkuusgraafi", expanded=False):
@@ -94,19 +79,27 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
     housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
     # plot
-    fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuusmatriisi',
+    fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuussuureiden nomogrammi',
                          x='GSI', y='FSI', color='rakennustyyppi', size='kerrosala', log_y=False,
                          hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
-                         color_discrete_map=colormap_hri)
+                         color_discrete_map=colormap_hri
+                         )
     fig_dens.update_layout(legend={'traceorder': 'normal'})
     st.plotly_chart(fig_dens, use_container_width=True)
     selite = '''
-    FSI = floor space index = tehokkuusluku   
-    GSI = ground space index = peitto  
-    OSR = open space ratio = väljyysluku  
-    soveltaen: Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.
+    FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
+    GSI = ground space index = rakennetun alueen A suhde morfologiseen tonttiin <br>
+    OSR = open space ratio = väljyysluku r (rakentamattoman alueen suhde kerrosalaan)<br>
+    <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+    Soveltaen:<br>
+     Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
+     Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>
+    Morfologinen tontti on rakennuksen ympärillä oleva vapaa alue (max 100m) polygoni tesselaationa suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).<br>  
+    Tämä tapa on katsottu soveltuvan ympäristön tehokkuuden laskemiseen juridisia tonttirajoja paremmin, mm. koska yhtiömuotoisilla tontteilla voi olla useampi rakennus.
+    Laskenta on toteutettu python-koodikirjastolla <a href="http://docs.momepy.org/en/stable/user_guide/elements/tessellation.html" target="_blank">Momepy</a>
+    </p>
     '''
-    st.markdown(selite)
+    st.markdown(selite, unsafe_allow_html=True)
 
 #map plot
 with st.expander("Rakennukset kartalla", expanded=False):

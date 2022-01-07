@@ -67,6 +67,7 @@ def hri_data(pno):
     gdf_out = gdf_pno.to_crs(epsg=4326)
     return gdf_out
 
+@st.cache(allow_output_mutation=True)
 def densities(buildings):
     # projected crs for momepy calculations & prepare for housing
     gdf_ = buildings.to_crs(3857)
@@ -82,7 +83,7 @@ def densities(buildings):
     tess_GSI = momepy.AreaRatio(tessellation, gdf,
                                 momepy.Area(tessellation).series,
                                 momepy.Area(gdf).series, 'uID')
-    gdf['GSI'] = round(tess_GSI.series,2)
+    gdf['GSI'] = round(tess_GSI.series,3)
     # calculate FSI = floor space index = FAR = floor area ratio
     gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,2)
     # calculate OSR = open space ratio = spaciousness

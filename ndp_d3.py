@@ -78,14 +78,29 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     # select only housing types & drop nan values
     showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
     housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
+    # colors for OSR
+    housing['OSR_color'] = round(housing['OSR'],1)
+    housing['OSR_color'] = housing['OSR_color'].astype(str)
     # plot
     fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuussuureiden nomogrammi',
-                         x='GSI', y='FSI', color='rakennustyyppi', size='kerrosala', log_y=False,
+                         x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_color', size='kerrosala', log_y=False,
                          hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
-                         color_discrete_map=colormap_hri
+                         labels={"color": False},
+                         color_discrete_map=colormap_hri,
+                         symbol_map={'Asuinkerrostalot':'square','Rivi- ja ketjutalot':'triangle-up','Erilliset pientalot':'circle'}
                          )
-    fig_dens.update_layout(legend={'traceorder': 'normal'})
+    fig_dens.update_layout(legend={'traceorder': 'grouped'})
+    fig_dens.update_layout(xaxis_range=[0, 0.5],yaxis_range=[0,2])
+    fig_dens.update_xaxes(rangeslider_visible=True)
+    # chart
     st.plotly_chart(fig_dens, use_container_width=True)
+
+    # describe_table
+    st.markdown('Tilastotaulukko (asuinrakennukset)')
+    des = housing.drop(columns=['uID','rakennusvuosi','OSR_color','OSR_ND']).describe()
+    st.dataframe(des)
+
+    # expl
     selite = '''
     FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
     GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
@@ -148,3 +163,5 @@ vaikutuksia palveluiden kehittymiseen data-analytiikan ja koneoppimisen avulla.
 </p>
 '''
 st.markdown(footer_text, unsafe_allow_html=True)
+
+#jepjep

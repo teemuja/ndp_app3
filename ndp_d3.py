@@ -5,6 +5,7 @@ import plotly.express as px
 from apis import pno_data
 from apis import hri_data
 from apis import densities
+from apis import save_to_repo
 
 # page setup
 st.set_page_config(page_title="NDP App d3", layout="wide")
@@ -21,6 +22,9 @@ header = '<p style="font-family:sans-serif; color:grey; font-size: 12px;">\
         NDP project app3 V0.75 "Dense Betaman"\
         </p>'
 st.markdown(header, unsafe_allow_html=True)
+# plot size setup
+#px.defaults.width = 600
+px.defaults.height = 600
 
 # page title
 header_title = '''
@@ -29,7 +33,7 @@ header_title = '''
 
 st.subheader(header_title)
 st.markdown("""---""")
-st.title('Data Paper #0.1')
+st.title('Data Paper #0.9')
 st.caption('Digitaalinen datapaperi tutkimustiedon analysointiin ja visualisointiin')
 st.title(':point_down:')
 
@@ -62,6 +66,15 @@ colormap_hri = {
     "Varastorakennukset": "darkgrey",
     "Palo- ja pelastustoimen rakennukset": "grey"
 }
+colormap_osr = {
+    "tehokas": "chocolate",
+    "tiivis": "darkgoldenrod",
+    "väljä": "darkolivegreen",
+    "harva": "cornflowerblue"
+}
+
+
+# get data
 pno_alue = kuntadata[kuntadata['Postinumeroalueen nimi'] == pno_nimi]
 data = hri_data(pno_alue)
 
@@ -78,18 +91,20 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     # select only housing types & drop nan values
     showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
     housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
-    # colors for OSR
-    housing['OSR_color'] = round(housing['OSR'],1)
-    housing['OSR_color'] = housing['OSR_color'].astype(str)
+    # classify osr values
+    housing['OSR_class'] = 'tehokas'
+    housing.loc[housing['OSR_ND'] > 2, 'OSR_class'] = 'tiivis'
+    housing.loc[housing['OSR_ND'] > 10, 'OSR_class'] = 'väljä'
+    housing.loc[housing['OSR_ND'] > 20, 'OSR_class'] = 'harva'
     # plot
     fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuussuureiden nomogrammi',
-                         x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_color', size='kerrosala', log_y=False,
-                         hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
-                         labels={"color": False},
-                         color_discrete_map=colormap_hri,
+                         x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_class', size='kerrosala', log_y=False,
+                         hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR','OSR_ND'],
+                         labels={"OSR_class": 'väljyysluokka'},
+                         color_discrete_map=colormap_osr,
                          symbol_map={'Asuinkerrostalot':'square','Rivi- ja ketjutalot':'triangle-up','Erilliset pientalot':'circle'}
                          )
-    fig_dens.update_layout(legend={'traceorder': 'grouped'})
+    fig_dens.update_layout(legend={'traceorder': 'normal'})
     fig_dens.update_layout(xaxis_range=[0, 0.5],yaxis_range=[0,2])
     fig_dens.update_xaxes(rangeslider_visible=True)
     # chart
@@ -97,56 +112,94 @@ with st.expander("Tehokkuusgraafi", expanded=False):
 
     # describe_table
     st.markdown('Tilastotaulukko (asuinrakennukset)')
-    des = housing.drop(columns=['uID','rakennusvuosi','OSR_color','OSR_ND']).describe()
+    des = housing.drop(columns=['uID','rakennusvuosi']).describe()
     st.dataframe(des)
+    # save to github
+    save_to_repo(des, f'{pno_nimi}')
 
     # expl
     selite = '''
     FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
     GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
-    OSR = open space ratio = väljyysluku r (rakentamattoman alueen suhde kerrosalaan)<br>
+    OSR = open space ratio = väljyysluku r<sub>t</sub> (rakentamattoman alueen suhde kerrosalaan tontilla)<br>
+    OSR_ND = open space ratio = naapuruston väljyys (naapurustotonttien väjyyslukujen keskiarvo)<br>
     <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
     Soveltaen:<br>
      Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
      Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>
-    Morfologinen tontti on rakennuksen ympärillä oleva vapaa alue (max 100m) polygoni tesselaationa suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).<br>  
+    Morfologinen tontti on rakennuksen ympärillä oleva vapaa alue (max 100m) polygoni tesselaationa suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).
     Tämä tapa on katsottu soveltuvan ympäristön tehokkuuden laskemiseen juridisia tonttirajoja paremmin, mm. koska yhtiömuotoisilla tontteilla voi olla useampi rakennus.
-    Laskenta on toteutettu python-koodikirjastolla <a href="http://docs.momepy.org/en/stable/user_guide/elements/tessellation.html" target="_blank">Momepy</a>
+    Naapurusto on määritetty käsittävän naapuritontit kahden asteen syvyydellä (rajanaapuritontit ja niiden rajanaapurit).
+    Laskennat on toteutettu python-koodikirjastolla <a href="http://docs.momepy.org/en/stable/user_guide/elements/tessellation.html" target="_blank">Momepy</a>
     </p>
     '''
     st.markdown(selite, unsafe_allow_html=True)
+    cita1 = '''
+    <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+    Väljyysluokittelun raja-arvot:<br>
+    tehokas: OSR_ND < 2, tiivis: OSR_ND < 10, väljä: OSR_ND < 20, harva: OSR_ND > 20 <br>
+    O-I Meurman esitti Asemakaavaoppi -kirjassaan, että väljyysluvun tulisi kerrostaloalueilla olla vähintään 2-3 ja pientaloalueilla 7-8 (Meurman 1947, s. 226)
+    </p>
+    '''
+    st.markdown(cita1, unsafe_allow_html=True)
 
 #map plot
 with st.expander("Rakennukset kartalla", expanded=False):
-    plot = density_data
-    lat = plot.unary_union.centroid.y
-    lon = plot.unary_union.centroid.x
-    fig = px.choropleth_mapbox(plot,
-                               geojson=plot.geometry,
-                               locations=plot.index,
-                               color=plot['rakennustyyppi'].astype(str),
-                               hover_name="tarkenne",
-                               hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR'],
-                               mapbox_style="carto-positron",
-                               labels={"color": "rakennustyyppi"},
-                               color_discrete_map=colormap_hri,
-                               center={"lat": lat, "lon": lon},
-                               zoom=13,
-                               opacity=0.8,
-                               width=1200,
-                               height=700
-                               )
-    fig.update_layout(title_text="Plot", margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700)
+    # plot functions
+    @st.cache(allow_output_mutation=True)
+    def all_plot(plot):
+        lat = plot.unary_union.centroid.y
+        lon = plot.unary_union.centroid.x
+        fig = px.choropleth_mapbox(plot,
+                                   geojson=plot.geometry,
+                                   locations=plot.index,
+                                   color=plot['rakennustyyppi'].astype(str),
+                                   hover_name="tarkenne",
+                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
+                                   mapbox_style="carto-positron",
+                                   labels={"color": "rakennustyyppi"},
+                                   color_discrete_map=colormap_hri,
+                                   center={"lat": lat, "lon": lon},
+                                   zoom=13,
+                                   opacity=0.8,
+                                   width=1200,
+                                   height=700
+                                   )
+        fig.update_layout(title_text="Plot", margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700)
+        return fig
 
-    # generate plot
-    with st.spinner('Kokoaa rakennuksia...'):
-        st.plotly_chart(fig, use_container_width=True)
+    @st.cache(allow_output_mutation=True)
+    def housing_plot(plot):
+        lat = plot.unary_union.centroid.y
+        lon = plot.unary_union.centroid.x
+        fig = px.choropleth_mapbox(plot,
+                                   geojson=plot.geometry,
+                                   locations=plot.index,
+                                   color=plot['OSR_class'],
+                                   hover_name="tarkenne",
+                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
+                                   mapbox_style="carto-positron",
+                                   labels={"OSR_class": "Väljyysluokka"},
+                                   color_discrete_map=colormap_osr,
+                                   center={"lat": lat, "lon": lon},
+                                   zoom=13,
+                                   opacity=0.8,
+                                   width=1200,
+                                   height=700
+                                   )
+        fig.update_layout(title_text="Plot", margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700)
+        return fig
+    # plottype
+    rakval = st.radio("Valitse data", ('Asuinrakennukset ja väljyydet', 'Kaikki rakennukset ja käyttötarkoitus'))
+    if rakval == 'Asuinrakennukset ja väljyydet':
+        st.plotly_chart(housing_plot(housing), use_container_width=True)
+    else:
+        st.plotly_chart(all_plot(density_data), use_container_width=True)
 
     st.caption("data: [hsy.fi](https://www.hsy.fi/ymparistotieto/avoindata/avoin-data---sivut/paakaupunkiseudun-rakennukset/)")
-    # download button
-    raks_csv = plot.drop(columns='uID').to_csv().encode('utf-8')
-    st.download_button(label="Lataa rakennukset CSV-tiedostona", data=raks_csv,
-                       file_name=f'rakennukset_{pno_nimi}.csv', mime='text/csv')
+    # save
+    raks_csv = density_data.drop(columns='uID').to_crs(4326).to_csv().encode('utf-8')
+    st.download_button(label="Tallenna rakennukset CSV:nä", data=raks_csv, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
 
 
 footer_title = '''

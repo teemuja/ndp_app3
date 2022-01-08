@@ -9,6 +9,10 @@ import osmnx as ox
 import momepy
 from shapely.geometry import Point
 
+from github import Github
+from github import InputGitTreeElement
+from datetime import datetime
+
 def loc2bbox(address,radius=1000):
     def make_bbox(center,radius,point_crs='4326',projected_crs='3857'):
         bounds=gpd.GeoSeries(center)
@@ -85,16 +89,45 @@ def densities(buildings):
                                 momepy.Area(gdf).series, 'uID')
     gdf['GSI'] = round(tess_GSI.series,3)
     # calculate FSI = floor space index = FAR = floor area ratio
-    gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,2)
+    gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,3)
     # calculate OSR = open space ratio = spaciousness
-    gdf['OSR'] = round((1 - gdf['GSI']) / gdf['FSI'],2)
+    gdf['OSR'] = round((1 - gdf['GSI']) / gdf['FSI'],3)
     # calculate average GSI of nearby plots
-    # queen contiguity for 3 degree neighbours = "perceived neighborhood"
-    sw3 = momepy.sw_high(k=3, gdf=tessellation, ids='uID')
-    tessellation = tessellation.merge(gdf[['uID', 'OSR']]) # add OSR values to tesselation areas for calculation below
+    # queen contiguity for 2 degree neighbours = "perceived neighborhood"
+    tessellation = tessellation.merge(gdf[['uID', 'OSR']])  # add OSR values to tesselation areas for calculation below
+    sw = momepy.sw_high(k=2, gdf=tessellation, ids='uID')
     # add median OSR of "perceived neighborhood" for each building
-    gdf['OSR_ND'] = momepy.AverageCharacter(tessellation, values='OSR', spatial_weights=sw3, unique_id='uID', mode='median').median
+    gdf['OSR_ND'] = momepy.AverageCharacter(tessellation, values='OSR', spatial_weights=sw, unique_id='uID').mean
+    gdf['OSR_ND'] = round(gdf['OSR_ND'],2)
     gdf_out = gdf.to_crs(4326)
     return gdf_out
 
-# eipätaaskaanvissiin
+def save_to_repo(df,placename):
+    def updategitfiles(file_names, file_list, token, Repo, branch, commit_message=""):
+        if commit_message == "":
+            commit_message = "Data Updated - " + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        g = Github(token)
+        repo = g.get_user().get_repo(Repo)
+        master_ref = repo.get_git_ref("heads/" + branch)
+        master_sha = master_ref.object.sha
+        base_tree = repo.get_git_tree(master_sha)
+        element_list = list()
+        for i in range(0, len(file_list)):
+            element = InputGitTreeElement(file_names[i], '100644', 'blob', file_list[i])
+            element_list.append(element)
+        tree = repo.create_git_tree(element_list, base_tree)
+        parent = repo.get_git_commit(master_sha)
+        commit = repo.create_git_commit(commit_message, tree, [parent])
+        master_ref.edit(commit.sha)
+        print('Update complete')
+
+    openrepo = "ndp_open_data"
+    branch = "main"
+    github_token = st.secrets['GITHUB_TOKEN']
+    csv1 = df.to_csv(sep=',', index=True)
+
+    file_list = [csv1]
+    file_names = [f'test_set_{placename}_summary.csv']
+
+    # save summary to open repo
+    updategitfiles(file_names,file_list,github_token,openrepo,branch)

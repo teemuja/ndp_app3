@@ -77,72 +77,79 @@ colormap_osr = {
 pno_alue = kuntadata[kuntadata['Postinumeroalueen nimi'] == pno_nimi]
 data = hri_data(pno_alue)
 
-with st.expander("Kerrosalahistoriikki", expanded=True):
-    # plot years
-    plot_yrs = data[(data['rakennusvuosi'] < 2022) & (data['rakennusvuosi'] > 1800)]
-    fig_yrs = px.scatter(plot_yrs, title=f'{pno_nimi} - Valmistuneet rakennukset ja niiden kerrosala ajassa',
+# plot years
+plot_yrs = data[(data['rakennusvuosi'] < 2022) & (data['rakennusvuosi'] > 1800)]
+fig_yrs = px.scatter(plot_yrs, title=f'{pno_nimi} - Kerrosalahistoriikki',
                          x='rakennusvuosi', y='kerrosala', color='rakennustyyppi', log_y=True,
                          hover_name='tarkenne', color_discrete_map=colormap_hri)
-    st.plotly_chart(fig_yrs, use_container_width=True)
+st.plotly_chart(fig_yrs, use_container_width=True)
 
-with st.expander("Tehokkuusgraafi", expanded=False):
-    density_data = densities(data)
-    # select only housing types & drop nan values
-    showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
-    housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
-    # classify osr values
+density_data = densities(data)
+
+# select only housing types & drop nan values
+showlist = ["Erilliset pientalot","Rivi- ja ketjutalot","Asuinkerrostalot"]
+housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)]
+# classify osr values
+osr_ve = st.radio("Valitse OSR-tyyppi graafiin", ('Tonttiväljyys', 'Naapuruston väljyys'))
+if osr_ve == 'Tonttiväljyys':
+    housing['OSR_class'] = 'tehokas'
+    housing.loc[housing['OSR'] > 2, 'OSR_class'] = 'tiivis'
+    housing.loc[housing['OSR'] > 10, 'OSR_class'] = 'väljä'
+    housing.loc[housing['OSR'] > 20, 'OSR_class'] = 'harva'
+else:
     housing['OSR_class'] = 'tehokas'
     housing.loc[housing['OSR_ND'] > 2, 'OSR_class'] = 'tiivis'
     housing.loc[housing['OSR_ND'] > 10, 'OSR_class'] = 'väljä'
     housing.loc[housing['OSR_ND'] > 20, 'OSR_class'] = 'harva'
-    # plot
-    fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuussuureiden nomogrammi',
-                         x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_class', size='kerrosala', log_y=False,
-                         hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR','OSR_ND'],
-                         labels={"OSR_class": 'väljyysluokka'},
-                         color_discrete_map=colormap_osr,
-                         symbol_map={'Asuinkerrostalot':'square','Rivi- ja ketjutalot':'triangle-up','Erilliset pientalot':'circle'}
-                         )
-    fig_dens.update_layout(legend={'traceorder': 'normal'})
-    fig_dens.update_layout(xaxis_range=[0, 0.5],yaxis_range=[0,2])
-    fig_dens.update_xaxes(rangeslider_visible=True)
-    # chart
-    st.plotly_chart(fig_dens, use_container_width=True)
 
-    # describe_table
-    st.markdown('Tilastotaulukko (asuinrakennukset)')
-    des = housing.drop(columns=['uID','rakennusvuosi']).describe()
-    st.dataframe(des)
+# plot
+fig_dens = px.scatter(housing, title=f'{pno_nimi} - Tehokkuussuureiden nomogrammi',
+                     x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_class', size='kerrosala', log_y=False,
+                     hover_name='tarkenne', hover_data=['rakennusvuosi','kerrosala','kerrosluku','FSI','GSI','OSR','OSR_ND'],
+                     labels={"OSR_class": 'väljyysluokka'},
+                     color_discrete_map=colormap_osr,
+                     symbol_map={'Asuinkerrostalot':'square','Rivi- ja ketjutalot':'triangle-up','Erilliset pientalot':'circle'}
+                     )
+fig_dens.update_layout(legend={'traceorder': 'normal'})
+fig_dens.update_layout(xaxis_range=[0, 0.5],yaxis_range=[0,2])
+fig_dens.update_xaxes(rangeslider_visible=True)
+# chart
+st.plotly_chart(fig_dens, use_container_width=True)
 
-    # expl
-    selite = '''
-    FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
-    GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
-    OSR = open space ratio = väljyysluku r<sub>t</sub> (rakentamattoman alueen suhde kerrosalaan tontilla)<br>
-    OSR_ND = open space ratio = naapuruston väljyys (naapurustotonttien väjyyslukujen keskiarvo)<br>
-    <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-    Soveltaen:<br>
-     Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
-     Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>
-    Morfologinen tontti on rakennuksen ympärillä oleva vapaa alue (max 100m) polygoni tesselaationa suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).
-    Tämä tapa on katsottu soveltuvan ympäristön tehokkuuden laskemiseen juridisia tonttirajoja paremmin, mm. koska yhtiömuotoisilla tontteilla voi olla useampi rakennus.
-    Naapurusto on määritetty käsittävän naapuritontit kahden asteen syvyydellä (rajanaapuritontit ja niiden rajanaapurit).
-    Laskennat on toteutettu python-koodikirjastolla <a href="http://docs.momepy.org/en/stable/user_guide/elements/tessellation.html" target="_blank">Momepy</a>
-    </p>
-    '''
-    st.markdown(selite, unsafe_allow_html=True)
-    cita1 = '''
-    <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-    Väljyysluokittelun raja-arvot:<br>
-    tehokas: OSR_ND < 2, tiivis: OSR_ND < 10, väljä: OSR_ND < 20, harva: OSR_ND > 20 <br>
-    O-I Meurman esitti Asemakaavaoppi -kirjassaan, että väljyysluvun tulisi kerrostaloalueilla olla vähintään 2-3 ja pientaloalueilla 7-8 (Meurman 1947, s. 226)
-    </p>
-    '''
-    st.markdown(cita1, unsafe_allow_html=True)
-    # save
-    tilastot = des.to_csv().encode('utf-8')
-    st.download_button(label="Tallenna tilastotaulukko CSV:nä", data=tilastot, file_name=f'tilastot_{pno_nimi}.csv',
-                       mime='text/csv')
+# describe_table
+st.markdown('Tilastotaulukko (asuinrakennukset)')
+des = housing.drop(columns=['uID','rakennusvuosi']).describe()
+st.dataframe(des)
+
+# expl
+selite = '''
+FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
+GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
+OSR = open space ratio = väljyysluku r<sub>t</sub> (rakentamattoman alueen suhde kerrosalaan tontilla)<br>
+OSR_ND = open space ratio = naapuruston väljyys (naapurustotonttien väjyyslukujen keskiarvo)<br>
+<p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+Soveltaen:<br>
+ Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
+ Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>
+Morfologinen tontti on rakennuksen ympärillä oleva vapaa alue (max 100m) polygoni tesselaationa suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).
+Tämä tapa on katsottu soveltuvan ympäristön tehokkuuden laskemiseen juridisia tonttirajoja paremmin, mm. koska yhtiömuotoisilla tontteilla voi olla useampi rakennus.
+Naapurusto on määritetty käsittävän naapuritontit kahden asteen syvyydellä (rajanaapuritontit ja niiden rajanaapurit).
+Laskennat on toteutettu python-koodikirjastolla <a href="http://docs.momepy.org/en/stable/user_guide/elements/tessellation.html" target="_blank">Momepy</a>
+</p>
+'''
+st.markdown(selite, unsafe_allow_html=True)
+cita1 = '''
+<p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+Väljyysluokittelun raja-arvot:<br>
+tehokas: OSR_ND < 2, tiivis: OSR_ND < 10, väljä: OSR_ND < 20, harva: OSR_ND > 20 <br>
+O-I Meurman esitti Asemakaavaoppi -kirjassaan, että väljyysluvun tulisi kerrostaloalueilla olla vähintään 2-3 ja pientaloalueilla 7-8 (Meurman 1947, s. 226)
+</p>
+'''
+st.markdown(cita1, unsafe_allow_html=True)
+# save
+tilastot = des.to_csv().encode('utf-8')
+st.download_button(label="Tallenna tilastotaulukko CSV:nä", data=tilastot, file_name=f'tilastot_{pno_nimi}.csv',
+                   mime='text/csv')
 
 #map plot
 with st.expander("Rakennukset kartalla", expanded=False):

@@ -5,7 +5,6 @@ import plotly.express as px
 from apis import pno_data
 from apis import hri_data
 from apis import densities
-from apis import save_to_repo
 
 # page setup
 st.set_page_config(page_title="NDP App d3", layout="wide")
@@ -114,8 +113,6 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     st.markdown('Tilastotaulukko (asuinrakennukset)')
     des = housing.drop(columns=['uID','rakennusvuosi']).describe()
     st.dataframe(des)
-    # save to github
-    save_to_repo(des, f'{pno_nimi}')
 
     # expl
     selite = '''
@@ -142,6 +139,10 @@ with st.expander("Tehokkuusgraafi", expanded=False):
     </p>
     '''
     st.markdown(cita1, unsafe_allow_html=True)
+    # save
+    tilastot = des.to_csv().encode('utf-8')
+    st.download_button(label="Tallenna tilastotaulukko CSV:nä", data=tilastot, file_name=f'tilastot_{pno_nimi}.csv',
+                       mime='text/csv')
 
 #map plot
 with st.expander("Rakennukset kartalla", expanded=False):
@@ -197,10 +198,6 @@ with st.expander("Rakennukset kartalla", expanded=False):
         st.plotly_chart(all_plot(density_data), use_container_width=True)
 
     st.caption("data: [hsy.fi](https://www.hsy.fi/ymparistotieto/avoindata/avoin-data---sivut/paakaupunkiseudun-rakennukset/)")
-    # save
-    raks_csv = density_data.drop(columns='uID').to_crs(4326).to_csv().encode('utf-8')
-    st.download_button(label="Tallenna rakennukset CSV:nä", data=raks_csv, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
-
 
 footer_title = '''
 ---

@@ -7,3 +7,4 @@ momepy
 plotly
 Rtree
 owslib
+PyGithub

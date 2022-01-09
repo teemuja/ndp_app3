@@ -97,3 +97,17 @@ def densities(buildings):
     gdf['OSR_ND'] = round(gdf['OSR_ND'],2)
     gdf_out = gdf.to_crs(4326)
     return gdf_out
+
+@st.cache(allow_output_mutation=True)
+def tess_boundaries(buildings):
+    # projected crs for momepy calculations & prepare for housing
+    gdf_ = buildings.to_crs(3857)
+    gdf_['kerrosala'] = pd.to_numeric(gdf_['kerrosala'], errors='coerce', downcast='float')
+    gdf_['kerrosala'].fillna(gdf_.area, inplace=True)
+    no_list = ['Muut rakennukset','Palo- ja pelastustoimen rakennukset','Varastorakennukset']
+    yes_serie = ~gdf_.rakennustyyppi.isin(no_list) # exclude some types
+    gdf = gdf_[yes_serie]
+    gdf['uID'] = momepy.unique_id(gdf)
+    limit = momepy.buffered_limit(gdf)
+    tessellation = momepy.Tessellation(gdf, unique_id='uID', limit=limit).tessellation
+    return tessellation.to_crs(4326)

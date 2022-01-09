@@ -46,7 +46,14 @@ kunta = c1.selectbox('Valitse kaupunki', kuntalista, index=default_kunta)
 kuntadata = pno_data(kunta,2021)
 pno_lista = kuntadata['Postinumeroalueen nimi'].tolist()
 # select pno area
-pno_nimi = c2.selectbox('Valitse postinumeroalue', pno_lista)
+if kunta == 'Espoo':
+    def_pno = 'Tapiola'
+elif kunta == 'Helsinki':
+    def_pno = 'Munkkiniemi'
+elif kunta == 'Vantaa':
+    def_pno = 'Tammisto'
+default_pno = pno_lista.index(def_pno)
+pno_nimi = c2.selectbox('Valitse postinumeroalue', pno_lista, index=default_pno)
 # get hri data
 pno_alue = kuntadata[kuntadata['Postinumeroalueen nimi'] == pno_nimi]
 data = hri_data(pno_alue)
@@ -157,9 +164,11 @@ with st.expander("Selitteet", expanded=False):
     selite = '''
     FSI = floor space index = tonttitehokkuus e<sub>t</sub> (ympyrän koko kuvaa rakennuksen kerrosalaa)<br>
     GSI = ground space index = rakennetun alueen suhde morfologiseen tonttiin <br>
-    OSR = open space ratio = väljyysluku r<sub>t</sub> (rakentamattoman alueen suhde kerrosalaan tontilla)<br>
+    OSR = open space ratio = tonttiväljyys eli väljyysluku r<sub>t</sub> (rakentamattoman alueen suhde kerrosalaan tontilla)<br>
     OSR_ND = open space ratio = naapuruston väljyys (naapurustotonttien väjyyslukujen keskiarvo)<br>
     <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+    '''
+    soveltaen = '''
     Soveltaen:<br>
      Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
      Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>
@@ -170,6 +179,13 @@ with st.expander("Selitteet", expanded=False):
     </p>
     '''
     st.markdown(selite, unsafe_allow_html=True)
+    cs1, cs2, cs3 = st.columns(3)
+    cs1.latex(r'''
+            OSR = r_{t} = \frac {1-GSI} {FSI}
+            ''')  # https://katex.org/docs/supported.html
+
+    st.markdown(soveltaen, unsafe_allow_html=True)
+
     cita1 = '''
     <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
     Väljyysluokittelun raja-arvot:<br>
@@ -231,7 +247,7 @@ with st.expander("Tehokkuusluokat kartalla", expanded=False):
         '''
     st.markdown(mapnote1, unsafe_allow_html=True)
     # save
-    raks = density_data.to_csv().encode('utf-8')
+    raks = density_data.drop(columns='uID').to_csv().encode('utf-8')
     st.download_button(label="Tallenna rakennukset CSV:nä", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',
                        mime='text/csv')
 

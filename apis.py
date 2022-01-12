@@ -59,7 +59,7 @@ def hri_data(pno):
     # columns to keep
     columns = ['kuntanimi', 'valm_v', 'kerrosala', 'kerrosluku', 'kayt_luok', 'kayttark', 'geometry']
     # overlay with pno area & use only columns
-    gdf_pno = pno.overlay(gdf.to_crs(3067), how='intersection')[columns]#.to_crs(4326)
+    gdf_pno = pno.to_crs(3067).overlay(gdf.to_crs(3067), how='intersection')[columns]#.to_crs(4326)
     gdf_pno.rename(columns={'valm_v': 'rakennusvuosi',
                           'kayt_luok': 'rakennustyyppi',
                           'kayttark': 'tarkenne',

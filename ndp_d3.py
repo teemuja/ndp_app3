@@ -77,8 +77,23 @@ colormap_osr = {
 # SELECTORS
 c_one, c_two, c_three = st.columns(3)
 rajaus = c_one.selectbox('Tarkastelurajaus',['Postinumeroalue','Oma rajaus'])
+
+third = c_three.empty()
+
 st.markdown('-----')
+
+st.subheader('Data')
+
 if rajaus == 'Oma rajaus':
+    third.markdown('Rajaustiedosto')
+    ohje = '''
+        <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+        <br><br>
+        Rajaustiedosto tulee olla CSV-tiedosto, jossa on "WKT" -niminen sarake, joka sisältää rajauspolygonin
+        koordinaattit epsg=4326 koordinaatistossa WKT-muodossa.
+        </p>
+        '''
+    third.markdown(ohje, unsafe_allow_html=True)
     uploadedFile = c_two.file_uploader("Valitse rajaustiedosto", type='csv')
     if uploadedFile is not None:
         from io import StringIO
@@ -136,14 +151,7 @@ if rajaus == 'Oma rajaus':
             st.stop()
     else:
         st.stop()
-    c_three.markdown('Rajaustiedosto')
-    ohje = '''
-    <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-    Rajaustiedosto tulee olla CSV-tiedosto, jossa on "WKT" -niminen sarake, joka sisältää rajauspolygonin
-    koordinaattit epsg=4326 koordinaatistossa WKT-muodossa.
-    </p>
-    '''
-    c_three.markdown(ohje, unsafe_allow_html=True)
+
 
 else:
     kuntalista = ['Espoo', 'Helsinki', 'Vantaa']
@@ -228,17 +236,9 @@ def classify_housign(density_data):
     housing.loc[housing['OSR_ND'] > 20, 'OSR_ND_class'] = 'harva'
     return housing
 
-
-# --- Initialising SessionState ---
-if "load_state" not in st.session_state:
-    st.session_state.load_state = False
-    if st.button('Laske tehokkuudet') or st.session_state.load_state:
-        st.session_state.load_state = True
-        density_data = densities(data)
-        housing = classify_housign(density_data)
-else:
-    density_data = densities(data)
-    housing = classify_housign(density_data)
+# get data
+density_data = densities(data)
+housing = classify_housign(density_data)
 
 def create_plot(density_data,osr_ve):
     if osr_ve == 'Tonttiväljyys':

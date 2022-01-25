@@ -56,7 +56,7 @@ Projektissa tutkitaan maankäytön tehokkuuden vaikutuksia kestävään kehityks
 </p>
 '''
 st.markdown(header_text, unsafe_allow_html=True)
-
+st.markdown('------')
 st.title("Data Paper #3")
 st.markdown("Pääkaupunkiseudun maankäytön tehokkuus -analyysit")
 st.markdown("###")
@@ -81,10 +81,12 @@ colormap_hri = {
     "Palo- ja pelastustoimen rakennukset": "grey"
 }
 colormap_osr = {
-    "tehokas": "chocolate",
+    "umpi": "chocolate",
     "tiivis": "darkgoldenrod",
-    "väljä": "darkolivegreen",
-    "harva": "cornflowerblue"
+    "kompakti": "darkolivegreen",
+    "väljä": "lightgreen",
+    "harva": "cornflowerblue",
+    "haja": "lightblue"
 }
 
 # SELECTORS
@@ -255,14 +257,18 @@ def classify_housign(density_data):
     showlist = ["Erilliset pientalot", "Rivi- ja ketjutalot", "Asuinkerrostalot"]
     housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)].dropna()
     # classify
-    housing['OSR_class'] = 'tiivis'
-    housing.loc[housing['OSR'] > 1, 'OSR_class'] = 'kompakti'
-    housing.loc[housing['OSR'] > 5, 'OSR_class'] = 'väljä'
-    housing.loc[housing['OSR'] > 10, 'OSR_class'] = 'harva'
-    housing['OSR_ND_class'] = 'tiivis'
-    housing.loc[housing['OSR_ND'] > 1, 'OSR_ND_class'] = 'kompakti'
-    housing.loc[housing['OSR_ND'] > 5, 'OSR_ND_class'] = 'väljä'
-    housing.loc[housing['OSR_ND'] > 10, 'OSR_ND_class'] = 'harva'
+    housing['OSR_class'] = 'umpi'
+    housing.loc[housing['OSR'] > 1, 'OSR_class'] = 'tiivis'
+    housing.loc[housing['OSR'] > 2, 'OSR_class'] = 'kompakti'
+    housing.loc[housing['OSR'] > 4, 'OSR_class'] = 'väljä'
+    housing.loc[housing['OSR'] > 8, 'OSR_class'] = 'harva'
+    housing.loc[housing['OSR'] > 16, 'OSR_class'] = 'haja'
+    housing['OSR_ND_class'] = 'umpi'
+    housing.loc[housing['OSR_ND'] > 1, 'OSR_ND_class'] = 'tiivis'
+    housing.loc[housing['OSR_ND'] > 2, 'OSR_ND_class'] = 'kompakti'
+    housing.loc[housing['OSR_ND'] > 4, 'OSR_ND_class'] = 'väljä'
+    housing.loc[housing['OSR_ND'] > 8, 'OSR_ND_class'] = 'harva'
+    housing.loc[housing['OSR_ND'] > 16, 'OSR_ND_class'] = 'haja'
     return housing
 
 st.markdown('###')
@@ -288,7 +294,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                   hover_name='tarkenne',
                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
                                   labels={"OSR_class": 'Tonttiväljyys'},
-                                  category_orders={'OSR_class': ['tiivis', 'kompakti', 'väljä', 'harva']},
+                                  category_orders={'OSR_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
                                   color_discrete_map=colormap_osr,
                                   symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                               'Erilliset pientalot': 'circle'}
@@ -303,7 +309,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                    hover_name='tarkenne',
                                    hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
                                    labels={"OSR_ND_class": 'Naapuruston väljyys'},
-                                   category_orders={'OSR_ND_class': ['tiivis', 'kompakti', 'väljä', 'harva']},
+                                   category_orders={'OSR_ND_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
                                    color_discrete_map=colormap_osr,
                                    symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                                'Erilliset pientalot': 'circle'}
@@ -387,7 +393,12 @@ with st.expander("Selitteet", expanded=False):
     <br>
     
     Väljyysluokittelun raja-arvot:<br>
-    tiivis: OSR < 1, kompakti: 1 < OSR < 5, väljä: 5 < OSR < 10, harva: OSR > 10 <br>
+    umpi: OSR < 1 <br>
+    tiivis: OSR 1-2 <br>
+    kompakti: OSR 2-4 <br>
+    väljä: OSR 4-8 <br>
+    harva: OSR 8-16 <br>
+    haja: OSR > 16 <br>
     <br>
     '''
     references = '''

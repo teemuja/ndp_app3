@@ -24,7 +24,7 @@ st.markdown(f""" <style>
     }} </style> """, unsafe_allow_html=True)
 
 header = '<p style="font-family:sans-serif; color:grey; font-size: 12px;">\
-        NDP project app3 V0.95 "Dense Betaman"\
+        NDP project app3 V0.95 "Dense Beta"\
         </p>'
 st.markdown(header, unsafe_allow_html=True)
 # plot size setup
@@ -364,9 +364,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
 
     # save button
     raks = saved_data.to_csv().encode('utf-8')
-    if st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv'):
-        #save_to_repo(saved_data,add) # save github without date
-        st.stop()
+    st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
 # ----------------------------------------------------------------------------------------
 
 # expl container

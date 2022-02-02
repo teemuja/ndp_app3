@@ -2,25 +2,8 @@
 from owslib.wfs import WebFeatureService
 import pandas as pd
 import geopandas as gpd
-import numpy as np
-import streamlit as st
-
-import osmnx as ox
 import momepy
-from shapely.geometry import Point
-
-def loc2bbox(address,radius=1000):
-    def make_bbox(center,radius,point_crs='4326',projected_crs='3857'):
-        bounds=gpd.GeoSeries(center)
-        bounds=bounds.set_crs(epsg=point_crs)
-        bounds=bounds.to_crs(epsg=projected_crs)
-        bounds=bounds.buffer(radius)
-        bounds=bounds.to_crs(epsg=point_crs)[0].bounds
-        return(bounds)
-    location = ox.geocode(address)
-    init_point = Point(location[1],location[0])
-    bbox_tuple = make_bbox(init_point,radius) + tuple(['urn:ogc:def:crs:EPSG::4326'])
-    return bbox_tuple
+import streamlit as st
 
 @st.cache(allow_output_mutation=True)
 def pno_data(kunta,vuosi=2021):
@@ -34,7 +17,7 @@ def pno_data(kunta,vuosi=2021):
     kuntakoodit = pd.read_csv('config/kunta_dict.csv', index_col=False, header=0).astype(str)
     kuntakoodit['koodi'] = kuntakoodit['koodi'].str.zfill(3)
     kunta_dict = pd.Series(kuntakoodit.kunta.values, index=kuntakoodit.koodi).to_dict()
-    paavodata['kunta'] = paavodata['kunta'].apply(lambda x: kunta_dict[x])
+    paavodata = paavodata.replace({'kunta':kunta_dict})
     dict_feat = pd.read_csv('config/paavo2021_dict.csv', skipinitialspace=True, header=None, index_col=0,squeeze=True).to_dict()
     selkopaavo = paavodata.rename(columns=dict_feat).sort_values('Kunta')
     pno_valinta = selkopaavo[selkopaavo['Kunta'] == kunta].sort_values('Asukkaat yhteensä', ascending=False)
@@ -88,7 +71,9 @@ def densities(buildings):
     gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,3)
     # calculate OSR = open space ratio = spaciousness
     gdf['OSR'] = round((1 - gdf['GSI']) / gdf['FSI'],3)
-    # calculate average GSI of nearby plots
+    # remove infinite values of osr
+    gdf['OSR'].clip(upper=gdf['OSR'].quantile(0.99), inplace=True)
+    # calculate average GSI of nearby plots as
     # queen contiguity for 2 degree neighbours = "perceived neighborhood"
     tessellation = tessellation.merge(gdf[['uID', 'OSR']])  # add OSR values to tesselation areas for calculation below
     sw = momepy.sw_high(k=2, gdf=tessellation, ids='uID')

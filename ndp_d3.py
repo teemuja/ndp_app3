@@ -58,7 +58,7 @@ Projektissa tutkitaan maankäytön tehokkuuden vaikutuksia kestävään kehityks
 st.markdown(header_text, unsafe_allow_html=True)
 st.markdown('------')
 st.title("Data Paper #3")
-st.markdown("Pääkaupunkiseudun maankäytön tehokkuus -analyysit")
+st.markdown("Pääkaupunkiseudun maankäytön tehokkuus")
 st.markdown("###")
 st.title(':point_down:')
 
@@ -99,7 +99,7 @@ if rajaus == 'Oma rajaus':
     ohje = '''
         <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
         <br><br>
-        Rajaustiedosto tulee olla CSV-tiedosto, jossa on "WKT" -niminen sarake, joka sisältää rajauspolygonin
+        Rajaustiedosto tulee olla CSV-tiedosto, jossa on "WKT" -nimiawaaä sarakkeessa rajauspolygonin
         koordinaattit epsg=4326 koordinaatistossa WKT-muodossa.
         </p>
         '''
@@ -135,7 +135,6 @@ if rajaus == 'Oma rajaus':
         # GET HRI DATA inside my boundary
         data = hri_data(boundary)
         pno_nimi = rajaus # for naming plots
-        tess = tess_boundaries(data).explode() # for plots
         # plot
         myplot = data.copy()
         try:
@@ -156,19 +155,14 @@ if rajaus == 'Oma rajaus':
                                          width=1200,
                                          height=700
                                          )
-            mymap.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700, mapbox={
-                "layers": [
-                    {
-                        "source": json.loads(tess.geometry.to_json()),
-                        "below": "traces",
-                        "type": "line",
-                        "color": "grey",
-                        "line": {"width": 0.2},
-                    }
-                ]
-            }
+            mymap.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700,
+                                legend=dict(
+                                    yanchor="top",
+                                    y=0.99,
+                                    xanchor="left",
+                                    x=0.01
                                 )
-
+                                )
         except ValueError:
             st.error('Tarkista rajaustiedosto')
             st.stop()
@@ -217,18 +211,15 @@ else:
                                              width=1200,
                                              height=700
                                              )
-                #mymap.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700, mapbox={
-                #    "layers": [
-                #        {
-                #            "source": json.loads(tess.geometry.to_json()),
-                #            "below": "traces",
-                #            "type": "line",
-                #            "color": "grey",
-                #            "line": {"width": 0.2},
-                #        }
-                #    ]
-                #}
-                #                    )
+                mymap.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700,
+                                      legend=dict(
+                                          yanchor="top",
+                                          y=0.99,
+                                          xanchor="left",
+                                          x=0.01
+                                      )
+                                    )
+                #
             except:
                 st.write('Postinumeroalueen data puuttuu')
                 st.stop()
@@ -280,8 +271,10 @@ st.markdown('###')
 st.markdown('###')
 
 if run_den:
-    density_data = densities(data)
-    housing = classify_housign(density_data)
+    with st.spinner(text='Laskee tehokkuuksia... tämä kestää hetken..'):
+        density_data = densities(data)
+        housing = classify_housign(density_data)
+        tess = tess_boundaries(data).explode()  # for plots
 else:
     st.stop()
 
@@ -293,7 +286,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                   log_y=False,
                                   hover_name='tarkenne',
                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
-                                  labels={"OSR_class": 'Tonttiväljyys'},
+                                  labels={"OSR_class": 'Tonttiväljyys','rakennustyyppi':''},
                                   category_orders={'OSR_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
                                   color_discrete_map=colormap_osr,
                                   symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
@@ -308,51 +301,64 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                    log_y=False,
                                    hover_name='tarkenne',
                                    hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
-                                   labels={"OSR_ND_class": 'Naapuruston väljyys'},
+                                   labels={"OSR_ND_class": 'Naapuruston väljyys','rakennustyyppi':''},
                                    category_orders={'OSR_ND_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
                                    color_discrete_map=colormap_osr,
                                    symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                                'Erilliset pientalot': 'circle'}
                                    )
-    fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 3])
+    fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
     fig_OSR_ND.update_xaxes(rangeslider_visible=True)
 
-    # and maps..
-    case_data_map = housing.to_crs(4326)
-    map_OSR = px.choropleth(case_data_map,
-                            title='Rakeisuus ja tonttiväljyys',
-                            geojson=case_data_map.geometry,
-                            locations=case_data_map.index,
-                            color="OSR_class",
-                            hover_name="tarkenne",
-                            hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
-                            color_discrete_map=colormap_osr,
-                            projection="mercator")
-    map_OSR.update_geos(fitbounds="locations", visible=False)
-    map_OSR.update_layout(showlegend=False) #margin={"r":0,"t":0,"l":0,"b":0},
-    #
-    map_OSR_ND = px.choropleth(case_data_map,
-                            title='Rakeisuus ja naapuruston väljyys',
-                            geojson=case_data_map.geometry,
-                            locations=case_data_map.index,
-                            color="OSR_ND_class",
-                            hover_name="tarkenne",
-                            hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
-                            color_discrete_map=colormap_osr,
-                            projection="mercator")
-    map_OSR_ND.update_geos(fitbounds="locations", visible=False)
-    map_OSR_ND.update_layout(showlegend=False)
-
+    # and map
+    lat = housing.unary_union.centroid.y
+    lon = housing.unary_union.centroid.x
+    OSR_map = px.choropleth_mapbox(housing,
+                                 geojson=housing.geometry,
+                                 locations=housing.index,
+                                 title=f'Tehokkuudet alueella: {pno_nimi}',
+                                 color="OSR_ND_class",
+                                 labels={"OSR_ND_class": 'Ympäristön väljyysluokat asuinrakennuksittain'},
+                                 hover_name="tarkenne",
+                                 hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
+                                 mapbox_style="carto-positron",
+                                 color_discrete_map=colormap_osr,
+                                 category_orders={'OSR_ND_class': ['umpi', 'tiivis', 'kompakti', 'väljä', 'harva', 'haja']},
+                                 center={"lat": lat, "lon": lon},
+                                 zoom=14,
+                                 opacity=0.8,
+                                 width=1200,
+                                 height=700
+                                 )
+    OSR_map.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700,
+                          legend=dict(
+                              yanchor="top",
+                              y=0.99,
+                              xanchor="left",
+                              x=0.01
+                          ),
+                          mapbox={
+        "layers": [
+            {
+                "source": json.loads(tess.geometry.to_json()),
+                "below": "traces",
+                "type": "line",
+                "color": "grey",
+                "line": {"width": 0.2},
+            }
+        ]
+    }
+                        )
     # charts..
     col1, col2 = st.columns(2)
     col1.plotly_chart(fig_OSR, use_container_width=True)
-    col1.plotly_chart(map_OSR, use_container_width=True)
     col2.plotly_chart(fig_OSR_ND, use_container_width=True)
-    col2.plotly_chart(map_OSR_ND, use_container_width=True)
+    st.plotly_chart(OSR_map, use_container_width=True)
 
     mapnote1 = '''
             <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-            Graaffeissa visualisoitu vain asuinrakennuksien tehokkuusluokat.
+            Kartalla vain asuinrakennuksien tehokkuusluokat. Hiusviivoilla morfologiset tontit,
+            joiden rakennukset huomioitu laskennassa (kts. selitteet).
             </p>
             '''
     st.markdown(mapnote1, unsafe_allow_html=True)
@@ -369,6 +375,8 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
 
 # expl container
 with st.expander("Selitteet", expanded=False):
+    st.markdown('Tehokkuuslaskelmatavat nomogrammeissa pohjautuvat uusimpaan alan tutkimukseen (kts. referenssit alla),'
+                'sekä O-I Meurmanin Asemakaavaoppi-kirjassa esitettyihin laskentamalleihin vuodelta 1947.')
     # describe_table
     st.markdown(f'Tilastotaulukko {pno_nimi} (asuinrakennukset)')
     des = housing.drop(columns=['uID', 'rakennusvuosi']).describe()
@@ -401,7 +409,8 @@ with st.expander("Selitteet", expanded=False):
     '''
     references = '''
     <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-    Referenssit:<i>
+    Referenssit:<br>
+    <i>
     Berghauser Pont, Meta, and Per Haupt. 2021. Spacematrix: Space, Density and Urban Form. Rotterdam: nai010 publishers.<br>
     Dovey, Kim, Pafka, Elek. 2014. The urban density assemblage: Modelling multiple measures. Urban Des Int 19, 66–76<br>
     Meurman, Otto-I. 1947. Asemakaavaoppi. Helsinki: Rakennuskirja.<br>

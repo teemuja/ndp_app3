@@ -274,7 +274,6 @@ if run_den:
     with st.spinner(text='Laskee tehokkuuksia... tämä kestää hetken..'):
         density_data = densities(data)
         housing = classify_housign(density_data)
-        tess = tess_boundaries(data).explode()  # for plots
 else:
     st.stop()
 
@@ -292,7 +291,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                   symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                               'Erilliset pientalot': 'circle'}
                                   )
-    fig_OSR.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 3])
+    fig_OSR.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
     fig_OSR.update_xaxes(rangeslider_visible=True)
 
     #OSR_ND
@@ -310,76 +309,89 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
     fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
     fig_OSR_ND.update_xaxes(rangeslider_visible=True)
 
-    # and map
-    lat = housing.unary_union.centroid.y
-    lon = housing.unary_union.centroid.x
-    OSR_map = px.choropleth_mapbox(housing,
-                                 geojson=housing.geometry,
-                                 locations=housing.index,
-                                 title=f'Tehokkuudet alueella: {pno_nimi}',
-                                 color="OSR_ND_class",
-                                 labels={"OSR_ND_class": 'Ympäristön väljyysluokat asuinrakennuksittain'},
-                                 hover_name="tarkenne",
-                                 hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
-                                 mapbox_style="carto-positron",
-                                 color_discrete_map=colormap_osr,
-                                 category_orders={'OSR_ND_class': ['umpi', 'tiivis', 'kompakti', 'väljä', 'harva', 'haja']},
-                                 center={"lat": lat, "lon": lon},
-                                 zoom=14,
-                                 opacity=0.8,
-                                 width=1200,
-                                 height=700
-                                 )
-    OSR_map.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700,
-                          legend=dict(
-                              yanchor="top",
-                              y=0.99,
-                              xanchor="left",
-                              x=0.01
-                          ),
-                          mapbox={
-        "layers": [
-            {
-                "source": json.loads(tess.geometry.to_json()),
-                "below": "traces",
-                "type": "line",
-                "color": "grey",
-                "line": {"width": 0.2},
-            }
-        ]
-    }
-                        )
     # charts..
-    col1, col2 = st.columns(2)
-    col1.plotly_chart(fig_OSR, use_container_width=True)
-    col2.plotly_chart(fig_OSR_ND, use_container_width=True)
-    st.plotly_chart(OSR_map, use_container_width=True)
+    #col1, col2 = st.columns(2)
+    st.plotly_chart(fig_OSR, use_container_width=True)
+    st.plotly_chart(fig_OSR_ND, use_container_width=True)
 
-    mapnote1 = '''
-            <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
-            Kartalla vain asuinrakennuksien tehokkuusluokat. Hiusviivoilla morfologiset tontit,
-            joiden rakennukset huomioitu laskennassa (kts. selitteet).
-            </p>
-            '''
-    st.markdown(mapnote1, unsafe_allow_html=True)
 
-    # prepare save..
-    density_data.insert(0, 'TimeStamp', pd.to_datetime('now').replace(microsecond=0))
-    density_data['date'] = density_data['TimeStamp'].dt.date
-    saved_data = density_data.drop(columns=(['uID', 'TimeStamp'])).assign(location=pno_nimi)
+with st.expander("Tehokkuuskartta", expanded=False):
+    with st.spinner(text='Laatii karttaa..'):
+        tess = tess_boundaries(data).explode()  # for plots
+        # the map
+        lat = housing.unary_union.centroid.y
+        lon = housing.unary_union.centroid.x
+        OSR_map = px.choropleth_mapbox(housing,
+                                       geojson=housing.geometry,
+                                       locations=housing.index,
+                                       title=f'Tehokkuudet alueella: {pno_nimi}',
+                                       color="OSR_ND_class",
+                                       labels={"OSR_ND_class": 'Ympäristön väljyysluokat asuinrakennuksittain'},
+                                       hover_name="tarkenne",
+                                       hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR',
+                                                   'OSR_ND'],
+                                       mapbox_style="carto-positron",
+                                       color_discrete_map=colormap_osr,
+                                       category_orders={
+                                           'OSR_ND_class': ['umpi', 'tiivis', 'kompakti', 'väljä', 'harva',
+                                                            'haja']},
+                                       center={"lat": lat, "lon": lon},
+                                       zoom=14,
+                                       opacity=0.8,
+                                       width=1200,
+                                       height=700
+                                       )
+        OSR_map.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700,
+                              legend=dict(
+                                  yanchor="top",
+                                  y=0.99,
+                                  xanchor="left",
+                                  x=0.01
+                              ),
+                              mapbox={
+                                  "layers": [
+                                      {
+                                          "source": json.loads(tess.geometry.to_json()),
+                                          "below": "traces",
+                                          "type": "line",
+                                          "color": "grey",
+                                          "line": {"width": 0.2},
+                                      }
+                                  ]
+                              }
+                              )
+        # chart
+        st.plotly_chart(OSR_map, use_container_width=True)
+        mapnote1 = '''
+                        <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
+                        Kartalla vain asuinrakennuksien tehokkuusluokat. Hiusviivoilla morfologiset tontit,
+                        joiden rakennukset huomioitu laskennassa (kts. selitteet).
+                        </p>
+                        '''
+        st.markdown(mapnote1, unsafe_allow_html=True)
 
-    # save button
-    raks = saved_data.to_csv().encode('utf-8')
-    save = st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
+        # prepare save..
+        density_data.insert(0, 'TimeStamp', pd.to_datetime('now').replace(microsecond=0))
+        density_data['date'] = density_data['TimeStamp'].dt.date
+        saved_data = density_data.drop(columns=(['uID', 'TimeStamp'])).assign(location=pno_nimi)
 
-    # secret save
-    from io import StringIO
-    import boto3
-    bucket = 'ndpproject'
-    csv_buffer = StringIO()
-    saved_data.to_csv(csv_buffer)
-    s3_resource = boto3.resource('s3')
-    s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').put(Body=csv_buffer.getvalue())
+        # save button
+        raks = saved_data.to_csv().encode('utf-8')
+        save = st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',
+                                  mime='text/csv')
+
+        # secret save
+        from io import StringIO
+        import boto3
+        from botocore.exceptions import ClientError
+        bucket = 'ndpproject'
+        csv_buffer = StringIO()
+        saved_data.to_csv(csv_buffer)
+        s3_resource = boto3.resource('s3')
+        try:
+            s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').load()
+        except ClientError as e:
+            s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').put(Body=csv_buffer.getvalue())
 
 
 # ----------------------------------------------------------------------------------------

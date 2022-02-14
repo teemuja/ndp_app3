@@ -370,7 +370,18 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
 
     # save button
     raks = saved_data.to_csv().encode('utf-8')
-    st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
+    save = st.download_button(label="Tallenna CSV", data=raks, file_name=f'rakennukset_{pno_nimi}.csv',mime='text/csv')
+
+    # secret save
+    from io import StringIO
+    import boto3
+    bucket = 'ndpproject'
+    csv_buffer = StringIO()
+    saved_data.to_csv(csv_buffer)
+    s3_resource = boto3.resource('s3')
+    s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').put(Body=csv_buffer.getvalue())
+
+
 # ----------------------------------------------------------------------------------------
 
 # expl container
@@ -428,7 +439,7 @@ with st.expander("Selitteet", expanded=False):
 footer_title = '''
 ---
 :see_no_evil: **Naked Density Project**
-[![MIT license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://lbesson.mit-license.org/) 
+[![MIT license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/teemuja) 
 '''
 st.markdown(footer_title)
 

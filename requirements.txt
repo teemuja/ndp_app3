@@ -7,3 +7,5 @@ momepy
 plotly
 Rtree
 owslib
+boto3
+

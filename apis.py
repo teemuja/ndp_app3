@@ -54,11 +54,18 @@ def hri_data(pno):
 def densities(buildings):
     # projected crs for momepy calculations & prepare for housing
     gdf_ = buildings.to_crs(3857)
+    # check kerrosala data and use footprint if nan/zero
     gdf_['kerrosala'] = pd.to_numeric(gdf_['kerrosala'], errors='coerce', downcast='float')
     gdf_['kerrosala'].fillna(gdf_.area, inplace=True)
+    gdf_.loc[gdf_['kerrosala'] == 0, 'kerrosala'] = gdf_.area
+    # add footprint area
+    gdf_['rakennusala'] = gdf_.area
+    #gdf_.loc[:,gdf_['rakennusala']] = gdf_.area
+    # exlude some utility building types
     no_list = ['Muut rakennukset','Palo- ja pelastustoimen rakennukset','Varastorakennukset']
-    yes_serie = ~gdf_.rakennustyyppi.isin(no_list) # exclude some types
+    yes_serie = ~gdf_.rakennustyyppi.isin(no_list)
     gdf = gdf_[yes_serie]
+    # prepare momoepy..
     gdf['uID'] = momepy.unique_id(gdf)
     limit = momepy.buffered_limit(gdf)
     tessellation = momepy.Tessellation(gdf, unique_id='uID', limit=limit).tessellation
@@ -71,15 +78,18 @@ def densities(buildings):
     gdf['FSI'] = round(gdf['kerrosala'] / momepy.Area(tessellation).series,3)
     # calculate OSR = open space ratio = spaciousness
     gdf['OSR'] = round((1 - gdf['GSI']) / gdf['FSI'],3)
-    # remove infinite values of osr
-    gdf['OSR'].clip(upper=gdf['OSR'].quantile(0.99), inplace=True)
-    # calculate average GSI of nearby plots as
+
+    # ND calculations
     # queen contiguity for 2 degree neighbours = "perceived neighborhood"
-    tessellation = tessellation.merge(gdf[['uID', 'OSR']])  # add OSR values to tesselation areas for calculation below
-    sw = momepy.sw_high(k=2, gdf=tessellation, ids='uID')
-    # add median OSR of "perceived neighborhood" for each building
-    gdf['OSR_ND'] = momepy.AverageCharacter(tessellation, values='OSR', spatial_weights=sw, unique_id='uID').mean
-    gdf['OSR_ND'] = round(gdf['OSR_ND'],2)
+    tessellation = tessellation.merge(gdf[['uID','rakennusala','kerrosala','OSR']]) # add selected values from buildings to tess-areas
+    sw = momepy.sw_high(k=2, gdf=tessellation, ids='uID') # degree of nd
+    gdf['GSI_ND'] = round(momepy.Density(tessellation, values='rakennusala', spatial_weights=sw, unique_id='uID').series, 2)
+    gdf['FSI_ND'] = round(momepy.Density(tessellation, values='kerrosala', spatial_weights=sw, unique_id='uID').series, 2)
+    gdf['OSR_ND'] = round((1 - gdf['GSI_ND']) / gdf['FSI_ND'], 2)
+    gdf['OSR_ND_mean'] = round(momepy.AverageCharacter(tessellation, values='OSR', spatial_weights=sw, unique_id='uID').mean,2)
+    # remove infinite values of osr if needed..
+    gdf['OSR_ND'].clip(upper=gdf['OSR'].quantile(0.99), inplace=True)
+    gdf['OSR_ND_mean'].clip(upper=gdf['OSR'].quantile(0.99), inplace=True)
     gdf_out = gdf.to_crs(4326)
     return gdf_out
 

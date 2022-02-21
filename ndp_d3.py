@@ -299,7 +299,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                    x='GSI', y='FSI', symbol='rakennustyyppi', color='OSR_ND_class', size='kerrosala',
                                    log_y=False,
                                    hover_name='tarkenne',
-                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
+                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI_ND', 'GSI_ND', 'OSR_ND'],
                                    labels={"OSR_ND_class": 'Naapuruston väljyys','rakennustyyppi':''},
                                    category_orders={'OSR_ND_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
                                    color_discrete_map=colormap_osr,
@@ -366,6 +366,7 @@ with st.expander("Tehokkuuskartta", expanded=False):
                         <p style="font-family:sans-serif; color:Dimgrey; font-size: 12px;">
                         Kartalla vain asuinrakennuksien tehokkuusluokat. Hiusviivoilla morfologiset tontit,
                         joiden rakennukset huomioitu laskennassa (kts. selitteet).
+                        Mahdolliset puuttuvat rakennukset ovat puutteita lähtödatassa tai teknisiä virheitä kohteen datan laadussa.
                         </p>
                         '''
         st.markdown(mapnote1, unsafe_allow_html=True)
@@ -373,7 +374,7 @@ with st.expander("Tehokkuuskartta", expanded=False):
         # prepare save..
         density_data.insert(0, 'TimeStamp', pd.to_datetime('now').replace(microsecond=0))
         density_data['date'] = density_data['TimeStamp'].dt.date
-        saved_data = density_data.drop(columns=(['uID', 'TimeStamp'])).assign(location=pno_nimi)
+        saved_data = density_data.drop(columns=(['uID', 'TimeStamp'])).assign(alue=pno_nimi)
 
         # save button
         raks = saved_data.to_csv().encode('utf-8')
@@ -389,9 +390,9 @@ with st.expander("Tehokkuuskartta", expanded=False):
         saved_data.to_csv(csv_buffer)
         s3_resource = boto3.resource('s3')
         try:
-            s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').load()
+            s3_resource.Object(bucket, f'ndp3/D3_v1_{pno_nimi}.csv').load()
         except ClientError as e:
-            s3_resource.Object(bucket, f'ndp1/D3_{pno_nimi}.csv').put(Body=csv_buffer.getvalue())
+            s3_resource.Object(bucket, f'ndp3/D3_v1_{pno_nimi}.csv').put(Body=csv_buffer.getvalue())
 
 
 # ----------------------------------------------------------------------------------------
@@ -409,10 +410,12 @@ with st.expander("Selitteet", expanded=False):
     **FSI** = floor space index = FAR = floor area ratio = tonttitehokkuus e<sub>t</sub><br>
     **GSI** = ground space index = peitto(coverage), eli rakennetun alueen suhde morfologiseen tonttiin <br>
     **OSR** = open space ratio = tonttiväljyys eli väljyysluku r<sub>t</sub> , eli rakentamattoman alueen suhde kerrosalaan <br>
-    **OSR_ND** = naapuruston väljyys (naapurustotonttien väjyyslukujen keskiarvo)<br>
+    **suure_ND** = naapuruston vastaava arvo<br>
+    **OSR_ND_mean** = naapuruston väjyyslukujen keskiarvo<br>
 
-    Väljyysluokittelu perustuu _väljyyslukuun_. Naapuruston väljyysluku on hyvä rakennetun ympäristön tehokkuuden mittari, koska se
-    yhdistää sekä rakentamisen volyymin (FSI) että maankäytön (GSI) tuottamat tehokkuussuureet lähiympäristöstä.
+    Väljyysluokittelu perustuu _väljyyslukuun_. Naapuruston väljyysluku (OSR ND) on hyvä rakennetun ympäristön tehokkuuden mittari, koska se
+    yhdistää sekä rakentamisen volyymin (FSI) että maankäytön (GSI + tonttirakenne ja kadut) tuottaman _kokonaistehokkuuden_.
+    <br>
     _Morfologinen tontti_ on rakennuksen ympärillä oleva vapaa alue (max 100m) _polygoni tesselaationa_ suhteessa ympäröiviin päärakennuksiin (piharakennuksia ei huomioita).
     Tämä tapa on katsottu soveltuvan ympäristön tehokkuuden laskemiseen juridisia tonttirajoja paremmin, koska yhtiömuotoisilla tontteilla voi olla useampi rakennus.
     Morfologinen tontti huomioi myös kaavoitus- ja liikennesuunnittelutapojen vaikutukset.

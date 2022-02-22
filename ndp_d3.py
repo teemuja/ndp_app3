@@ -46,7 +46,7 @@ div.stButton > button:hover {
 
 # page title
 header_title = '''
-:see_no_evil: **Naked Density Project**
+**Naked Density Project**
 '''
 st.subheader(header_title)
 header_text = '''
@@ -453,7 +453,7 @@ with st.expander("Selitteet", expanded=False):
 
 footer_title = '''
 ---
-:see_no_evil: **Naked Density Project**
+**Naked Density Project**
 [![MIT license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/teemuja) 
 '''
 st.markdown(footer_title)

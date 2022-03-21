@@ -292,7 +292,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                               'Erilliset pientalot': 'circle'}
                                   )
     fig_OSR.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
-    fig_OSR.update_xaxes(rangeslider_visible=True)
+    fig_OSR.update_xaxes(rangeslider_visible=False)
 
     #OSR_ND
     fig_OSR_ND = px.scatter(housing, title=f'{pno_nimi} - Naapuruston väljyys',
@@ -307,7 +307,7 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                                'Erilliset pientalot': 'circle'}
                                    )
     fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
-    fig_OSR_ND.update_xaxes(rangeslider_visible=True)
+    fig_OSR_ND.update_xaxes(rangeslider_visible=False)
 
     # charts..
     #col1, col2 = st.columns(2)
@@ -401,8 +401,14 @@ with st.expander("Tehokkuuskartta", expanded=False):
 with st.expander("Selitteet", expanded=False):
     st.markdown('Tehokkuuslaskelmatavat nomogrammeissa pohjautuvat uusimpaan alan tutkimukseen (kts. referenssit alla),'
                 'sekä O-I Meurmanin Asemakaavaoppi-kirjassa esitettyihin laskentamalleihin vuodelta 1947.')
+
+    kem_ak = housing.loc[housing['rakennustyyppi'] == 'Asuinkerrostalot']['kerrosala'].agg('sum')
+    kem_ar = housing.loc[housing['rakennustyyppi'] == 'Rivi- ja ketjutalot']['kerrosala'].agg('sum')
+    kem_ap = housing.loc[housing['rakennustyyppi'] == 'Erilliset pientalot']['kerrosala'].agg('sum')
+
     # describe_table
-    st.markdown(f'Tilastotaulukko {pno_nimi} (asuinrakennukset)')
+    st.markdown(f'Tilastotaulukko {pno_nimi}')
+    st.caption(f'Asuinkerrostalot {kem_ak} kem2 / Rivi- ja ketjutalot {kem_ar} kem2 / Erilliset pientalot {kem_ap} kem2')
     des = housing.drop(columns=['uID', 'rakennusvuosi']).describe()
     st.dataframe(des)
     # expl

@@ -24,7 +24,7 @@ st.markdown(f""" <style>
     }} </style> """, unsafe_allow_html=True)
 
 header = '<p style="font-family:sans-serif; color:grey; font-size: 12px;">\
-        NDP project app3 V0.95 "Dense Beta"\
+        NDP project app3 V0.96 "Dense Beta"\
         </p>'
 st.markdown(header, unsafe_allow_html=True)
 # plot size setup
@@ -81,7 +81,7 @@ colormap_hri = {
     "Palo- ja pelastustoimen rakennukset": "grey"
 }
 colormap_osr = {
-    "umpi": "chocolate",
+    "ahdas": "chocolate",
     "tiivis": "darkgoldenrod",
     "kompakti": "darkolivegreen",
     "väljä": "lightgreen",
@@ -248,13 +248,13 @@ def classify_housign(density_data):
     showlist = ["Erilliset pientalot", "Rivi- ja ketjutalot", "Asuinkerrostalot"]
     housing = density_data.loc[density_data['rakennustyyppi'].isin(showlist)].dropna()
     # classify
-    housing['OSR_class'] = 'umpi'
+    housing['OSR_class'] = 'ahdas'
     housing.loc[housing['OSR'] > 1, 'OSR_class'] = 'tiivis'
     housing.loc[housing['OSR'] > 2, 'OSR_class'] = 'kompakti'
     housing.loc[housing['OSR'] > 4, 'OSR_class'] = 'väljä'
     housing.loc[housing['OSR'] > 8, 'OSR_class'] = 'harva'
     housing.loc[housing['OSR'] > 16, 'OSR_class'] = 'haja'
-    housing['OSR_ND_class'] = 'umpi'
+    housing['OSR_ND_class'] = 'ahdas'
     housing.loc[housing['OSR_ND'] > 1, 'OSR_ND_class'] = 'tiivis'
     housing.loc[housing['OSR_ND'] > 2, 'OSR_ND_class'] = 'kompakti'
     housing.loc[housing['OSR_ND'] > 4, 'OSR_ND_class'] = 'väljä'
@@ -286,12 +286,12 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                   hover_name='tarkenne',
                                   hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI', 'GSI', 'OSR', 'OSR_ND'],
                                   labels={"OSR_class": 'Tonttiväljyys','rakennustyyppi':''},
-                                  category_orders={'OSR_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
+                                  category_orders={'OSR_class': ['ahdas','tiivis','kompakti','väljä','harva','haja']},
                                   color_discrete_map=colormap_osr,
                                   symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                               'Erilliset pientalot': 'circle'}
                                   )
-    fig_OSR.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
+    fig_OSR.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, housing['FSI'].quantile(0.99)])
     fig_OSR.update_xaxes(rangeslider_visible=False)
 
     #OSR_ND
@@ -301,12 +301,12 @@ with st.expander("Tehokkuusnomogrammit", expanded=True):
                                    hover_name='tarkenne',
                                    hover_data=['rakennusvuosi', 'kerrosala', 'kerrosluku', 'FSI_ND', 'GSI_ND', 'OSR_ND'],
                                    labels={"OSR_ND_class": 'Naapuruston väljyys','rakennustyyppi':''},
-                                   category_orders={'OSR_ND_class': ['umpi','tiivis','kompakti','väljä','harva','haja']},
+                                   category_orders={'OSR_ND_class': ['ahdas','tiivis','kompakti','väljä','harva','haja']},
                                    color_discrete_map=colormap_osr,
                                    symbol_map={'Asuinkerrostalot': 'square', 'Rivi- ja ketjutalot': 'triangle-up',
                                                'Erilliset pientalot': 'circle'}
                                    )
-    fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, 2])
+    fig_OSR_ND.update_layout(xaxis_range=[0, 0.5], yaxis_range=[0, housing['FSI'].quantile(0.99)])
     fig_OSR_ND.update_xaxes(rangeslider_visible=False)
 
     # charts..
@@ -333,7 +333,7 @@ with st.expander("Tehokkuuskartta", expanded=False):
                                        mapbox_style="carto-positron",
                                        color_discrete_map=colormap_osr,
                                        category_orders={
-                                           'OSR_ND_class': ['umpi', 'tiivis', 'kompakti', 'väljä', 'harva',
+                                           'OSR_ND_class': ['ahdas', 'tiivis', 'kompakti', 'väljä', 'harva',
                                                             'haja']},
                                        center={"lat": lat, "lon": lon},
                                        zoom=14,
@@ -431,7 +431,7 @@ with st.expander("Selitteet", expanded=False):
     <br>
     
     Väljyysluokittelun raja-arvot:<br>
-    umpi: OSR < 1 <br>
+    ahdas: OSR < 1 <br>
     tiivis: OSR 1-2 <br>
     kompakti: OSR 2-4 <br>
     väljä: OSR 4-8 <br>
